@@ -1,0 +1,3 @@
+train: /scratch/st-li1210-1/pearl/karyotype-detector/data/cropped_v3/train
+val: /scratch/st-li1210-1/pearl/karyotype-detector/data/cropped_v3/val
+test: /scratch/st-li1210-1/pearl/karyotype-detector/data/cropped_v3/test
