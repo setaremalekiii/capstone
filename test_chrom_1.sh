@@ -1,14 +1,14 @@
 #!/bin/bash
 ####### Reserve computing resources #############
 #SBATCH --time=3:00:00 
-#SBATCH --job-name= combined_hyps_v2_on_chrom2 
+#SBATCH --job-name=combined_hyps_v2_on_chrom1 
 #SBATCH --account=st-li1210-1
 #SBATCH --nodes=1        
 #SBATCH --ntasks=1   
 #SBATCH --cpus-per-task=3                         
 #SBATCH --mem=15G
-#SBATCH --output=/scratch/st-li1210-1/pearl/karyotype-detector/logs/yolov5/test_combined_hyps_v2_on_chrom2_output.txt
-#SBATCH --error=/scratch/st-li1210-1/pearl/karyotype-detector/logs/yolov5/test_combined_hyps_v2_on_chrom2_error.txt
+#SBATCH --output=/scratch/st-li1210-1/pearl/karyotype-detector/logs/yolov5/test_combined_hyps_v2_on_chrom1_output.txt
+#SBATCH --error=/scratch/st-li1210-1/pearl/karyotype-detector/logs/yolov5/test_combined_hyps_v2_on_chrom1_error.txt
 #SBATCH --mail-user=jinjpark@student.ubc.ca
 #SBATCH --mail-type=ALL
 
@@ -25,7 +25,7 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # List of datasets to test
 DATASETS=(
-    "data/test_norm_chrom2_cropped.yaml"
+    "data/test_norm_chrom1_cropped.yaml"
 )
 
 # Test parameters
@@ -45,7 +45,7 @@ for DATA_YAML in "${DATASETS[@]}"; do
         --save-txt \
         --save-conf \
         --project runs/test \
-        --name combined_hyps_v2_on_chrom2
+        --name combined_hyps_v2_on_chrom1
 done
 
 # Deactivate environment
