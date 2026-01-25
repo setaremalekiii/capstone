@@ -24,7 +24,7 @@ INPUT_DIR = Path("C:/Users/setim/Desktop/year 5/457/seperate_by_class/train_crop
 
 # OUTPUT base folder where class subfolders will be created
 # Same as this one 
-OUTPUT_BASE = Path("C:/Users/setim/Desktop/year 5/457/seperate_by_class/class_output")
+OUTPUT_BASE = Path("C:\Users\Hanna\Documents\GitHub\capstone\CVAE\class_2")
 
 # Matches "..._class<number>_....jpg"
 CLASS_RE = re.compile(r"(?:^|_)class(\d+)(?:_|$)", re.IGNORECASE)
@@ -51,7 +51,13 @@ def main() -> None:
     copied = 0
     skipped = 0
 
+    MAX_IMAGES = 10
+
     for entry in INPUT_DIR.iterdir():
+
+        if copied >= MAX_IMAGES:
+            break
+        
         if not entry.is_file():
             continue
 
