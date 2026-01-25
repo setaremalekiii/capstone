@@ -11,10 +11,12 @@ import os
 import matplotlib.pyplot as plt
 from torchvision.utils import save_image
 
+# hyperparameter of our loss function are beta and gamma 
 def loss_function(x_recon, x, mu, logvar, bsize, beta, gamma):
+  # BCE  and  KLE are weighted by gamma and beta respectively
   BCE = F.binary_cross_entropy(x_recon, x, reduction="sum") / bsize
   KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / bsize
-
+  # if you sum  the losses of averaging per batch, you get a scalar loss
   total_loss = gamma * BCE + beta * KLD
   return total_loss, BCE, KLD
 

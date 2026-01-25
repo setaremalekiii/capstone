@@ -103,25 +103,30 @@ class ConvCVAE(nn.Module):
           nn.Sigmoid()
         )
       
-  # encodes input image x  and label  y into mu and logvar
+  # encodes input image x  and its label y into mu and logvar parameters
+  # x → [B, 1, H, W]  B images 1 channel (grayscale) height H width W
+  # y → [B, 24] B labels each of size 24 (one hot encoded)
   def encode(self, x, y):
+    # y_map → [B, 24, H, W]
     y_map = y.unsqueeze(2).unsqueeze(3).expand(-1, -1, self.img_size[0], self.img_size[1])
     # concatenating (linking together) image channels to labels
     print(f"y_map shape: {y_map.shape}, x shape: {x.shape}")
     x_cond = torch.cat([x, y_map], dim=1) 
     print(f"x_cond shape: {x_cond.shape}")
     h = self.enc_conv(x_cond)
-      
+    # CNN encoder compresses spatially into features.
     out = h.view(h.size(0), -1)  # flatten to [B, C*H*W]
     mu = self.fc_mu(out)
     logvar = self.fc_logvar(out)
-    # another value we  can change if needed
+    # another value we can change if needed
     logvar = torch.clamp(logvar, min=-10, max=10)
     return mu, logvar
 
+  # this is applied per sample?
   def reparameterize(self, mu, logvar):
     # Reparameterization: required since normal distribution is not differentiable
     # returns latent vector z 
+    # log variance to standard deviation
     std = torch.exp(0.5 * logvar)
     eps = torch.randn_like(std)
     return mu + eps * std
