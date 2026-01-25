@@ -6,9 +6,10 @@ import yaml
 import argparse
 import torch
 import glob
+import matplotlib.pyplot as plt
 import numpy as np
 from ConvCVAE import ConvCVAE
-from train_4 import train_model
+from pierce_Train import train_model
 # from test import test_model
 from data import ChromosomeDataset
 from torch.utils.data import DataLoader
@@ -104,14 +105,17 @@ def main(args):
     print(f"Training results found in directory {exp_name}")
     
   elif args.exptype == 'val':
-    print(f"{exptype} not implemented yet", flush = True)
+    print(f"{args.exptype} not implemented yet", flush = True)
   elif args.exptype == 'test':
-    print(f"{exptype} not implemented yet", flush = True)
+    print(f"{args.exptype} not implemented yet", flush = True)
     # test_data = ChromosomeDataset(test_img_paths, target_size = target_imgsize, transform = False)
     # test_dataloader = DataLoader(test_data, args.bsize, shuffle=False)
     # 
     # test_results = test_model(model, test_dataloader, device, args.bce, args.ssim)
     # 
+   # Use the trained encoder model part to get z_mean
+
+  
 
 if __name__ == "__main__":
   
@@ -133,3 +137,4 @@ if __name__ == "__main__":
   args = parser.parse_args()
   main(args)
   print_hyps(args, parser)
+
