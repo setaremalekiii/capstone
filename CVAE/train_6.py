@@ -84,7 +84,7 @@ def plot_training_loss(total_bce_losses, total_kld_losses, total_ssim_losses, to
   plt.grid(True)
   return fig
 
-def plot_latent_space(model, data_loader, device, n_samples=5000):
+def plot_latent_space(model, data_loader, device, n_samples=100):
   model.eval()
   mus = []
   labels = []
@@ -108,7 +108,7 @@ def plot_latent_space(model, data_loader, device, n_samples=5000):
 
     # If y is one-hot [B,24], convert to class id for coloring
   if labels.ndim == 2:
-      labels = labels.argmax(axis=1)
+     labels = labels.argmax(axis=1)
 
   fig = plt.figure(figsize=(10, 8))
   plt.scatter(mus[:, 0], mus[:, 1], c=labels, cmap="viridis", s=8, alpha=0.7)
@@ -117,8 +117,37 @@ def plot_latent_space(model, data_loader, device, n_samples=5000):
   plt.ylabel("mu[1]")
   plt.title("CVAE latent means (first 2 dims)")
   plt.grid(True)
-  plt.show()
   return fig
+
+def plot_mu_vs_sigma(model, data_loader, device, latent_idx=45, n_samples=500):
+    model.eval()
+    mus, sigmas = [], []
+
+    with torch.no_grad():
+        n = 0
+        for x, y in data_loader:
+            x, y = x.to(device), y.to(device)
+            mu, logvar = model.encode(x, y)
+
+            sigma = torch.exp(0.5 * logvar)
+
+            mus.append(mu[:, latent_idx].cpu().numpy())
+            sigmas.append(sigma[:, latent_idx].cpu().numpy())
+
+            n += x.size(0)
+            if n >= n_samples:
+                break
+
+    mu_vals = np.concatenate(mus)[:n_samples]
+    sigma_vals = np.concatenate(sigmas)[:n_samples]
+
+    fig = plt.figure(figsize=(7, 6))
+    plt.scatter(mu_vals, sigma_vals, s=8, alpha=0.6)
+    plt.xlabel(f"mu[{latent_idx}]")
+    plt.ylabel(f"sigma[{latent_idx}]")
+    plt.title(f"Mean vs Uncertainty (latent dim {latent_idx})")
+    plt.grid(True)
+    return fig
 
 def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, device, n_epochs, output_dir, patience, min_beta_value = 0.1):
   if not train_dataloader or not val_dataloader:
@@ -151,7 +180,7 @@ def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, d
 
   for epoch in range(n_epochs):
     beta = min(min_beta_value + 0.9 * epoch / n_epochs, 1)
-    alpha = 0.1
+    alpha = 1.0
     gamma = max(1.0 - 0.99 * epoch / n_epochs, 0.1)
     print(f"Epoch: {epoch+1}/{n_epochs} | Beta: {beta:.4f} | Gamma: {gamma:.4f} | Alpha: {alpha:.4f}")
     train_epoch_losses, train_bce_losses, train_kld_losses, train_ssim_losses = [], [], [], []
@@ -254,4 +283,9 @@ def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, d
   latent_space.savefig(os.path.join(output_dir, 'Latent_space.png'))
   plt.close(latent_space)
 
+  mu_vs_sigma = plot_mu_vs_sigma(model, train_dataloader, device)
+  mu_vs_sigma.savefig(os.path.join(output_dir, 'mu_vs_sigma.png'))
+  plt.close(mu_vs_sigma)
+
   return total_training_loss, total_val_loss
+
