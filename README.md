@@ -8,6 +8,7 @@ Get seperated photos of each class either by running utils\seperate_class.py or 
 
 ## step 2: 
 Add the bash script, yaml file and the approrpaite image file for the class into sockeye so where the paths are indicated in yaml/bash and submit a job to run YOLO 
+NOTE: before you run you can run the python lines in your command line to make sure there are no compiler error before you submit your job to sockeye
 
 ## step 3: 
 Once  you have the output images of yolo boxes and their labels run the utils\yolo_to_mask.py and subsequently the utils\generate_masked_photos.py

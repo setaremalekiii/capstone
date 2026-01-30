@@ -47,6 +47,7 @@ class ChromosomeDataset(Dataset):
     
     return img_tensor, one_hot_label
   
+  # augmentation includes horizontal flipping and brightness changes only 
   def random_augment(self, img):
     # horizontal flip
     if torch.rand(1) < 0.5:
@@ -57,6 +58,7 @@ class ChromosomeDataset(Dataset):
     img = np.clip(img * alpha, 0, 255).astype(np.uint8)
     return img
 
+  # resize with letterbox (padding to maintain aspect ratio) 
   def apply_letterbox(self, img, color=(114,)):
     h, w = img.shape[:2]
     if w > h:
