@@ -12,6 +12,8 @@ import os
 import matplotlib.pyplot as plt
 from torchvision.utils import save_image
 from torchmetrics.image import StructuralSimilarityIndexMeasure
+from pathlib import Path
+
 
 
 def loss_function(x_recon, x, mu, logvar, ssim_fn, beta, gamma, alpha, bsize):
@@ -119,7 +121,14 @@ def plot_latent_space(model, data_loader, device, n_samples=100):
   plt.grid(True)
   return fig
 
-def plot_mu_vs_sigma(model, data_loader, device, latent_idx=45, n_samples=500):
+def plot_mu_vs_sigma_all_dims(
+    model,
+    data_loader,
+    device,
+    n_samples=500,
+    max_dims=None,
+    save_dir=None,
+):
     model.eval()
     mus, sigmas = [], []
 
@@ -131,23 +140,44 @@ def plot_mu_vs_sigma(model, data_loader, device, latent_idx=45, n_samples=500):
 
             sigma = torch.exp(0.5 * logvar)
 
-            mus.append(mu[:, latent_idx].cpu().numpy())
-            sigmas.append(sigma[:, latent_idx].cpu().numpy())
+            mus.append(mu.cpu())
+            sigmas.append(sigma.cpu())
 
             n += x.size(0)
             if n >= n_samples:
                 break
 
-    mu_vals = np.concatenate(mus)[:n_samples]
-    sigma_vals = np.concatenate(sigmas)[:n_samples]
+    mu_vals = torch.cat(mus, dim=0)[:n_samples]
+    sigma_vals = torch.cat(sigmas, dim=0)[:n_samples]
 
-    fig = plt.figure(figsize=(7, 6))
-    plt.scatter(mu_vals, sigma_vals, s=8, alpha=0.6)
-    plt.xlabel(f"mu[{latent_idx}]")
-    plt.ylabel(f"sigma[{latent_idx}]")
-    plt.title(f"Mean vs Uncertainty (latent dim {latent_idx})")
-    plt.grid(True)
-    return fig
+    latent_dim = mu_vals.shape[1]
+    if max_dims is not None:
+        latent_dim = min(latent_dim, max_dims)
+
+    figs = []
+
+    for i in range(latent_dim):
+        fig = plt.figure(figsize=(7, 6))
+        plt.scatter(
+            mu_vals[:, i].numpy(),
+            sigma_vals[:, i].numpy(),
+            s=8,
+            alpha=0.6,
+        )
+        plt.xlabel(f"mu[{i}]")
+        plt.ylabel(f"sigma[{i}]")
+        plt.title(f"Mean vs Uncertainty (latent dim {i})")
+        plt.grid(True)
+
+        if save_dir is not None:
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            plt.savefig(Path(save_dir) / f"mu_vs_sigma_dim_{i}.png", dpi=150)
+            plt.close(fig)
+
+        figs.append(fig)
+
+    return figs
+
 
 def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, device, n_epochs, output_dir, patience, min_beta_value = 0.1):
   if not train_dataloader or not val_dataloader:
@@ -283,9 +313,17 @@ def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, d
   latent_space.savefig(os.path.join(output_dir, 'Latent_space.png'))
   plt.close(latent_space)
 
-  mu_vs_sigma = plot_mu_vs_sigma(model, train_dataloader, device)
-  mu_vs_sigma.savefig(os.path.join(output_dir, 'mu_vs_sigma.png'))
-  plt.close(mu_vs_sigma)
+  #mu_vs_sigma = plot_mu_vs_sigma(model, train_dataloader, device)
+  #mu_vs_sigma.savefig(os.path.join(output_dir, 'mu_vs_sigma.png'))
+  #plt.close(mu_vs_sigma)
+
+  plot_mu_vs_sigma_all_dims(
+    model,
+    train_dataloader,
+    device,
+    n_samples=500,
+    save_dir= os.path.join(output_dir)
+)
+
 
   return total_training_loss, total_val_loss
-
