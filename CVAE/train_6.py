@@ -86,6 +86,33 @@ def plot_training_loss(total_bce_losses, total_kld_losses, total_ssim_losses, to
   plt.grid(True)
   return fig
 
+def extract_latents(model, dataloader, device):
+    model.eval()
+
+    latents = []
+
+    with torch.no_grad():
+        for batch in dataloader:
+            # adjust this depending on how your dataset returns data
+            # most of your code uses (x, c) for CVAE
+            if isinstance(batch, (list, tuple)) and len(batch) == 2:
+                x, c = batch
+                x = x.to(device)
+                c = c.to(device)
+
+                # ---- IMPORTANT ----
+                # adapt this line to your model API
+                mu, logvar = model.encode(x, c)
+
+            else:
+                x = batch.to(device)
+                mu, logvar = model.encode(x)
+
+            latents.append(mu.cpu().numpy())
+
+    latents = np.concatenate(latents, axis=0)
+    return latents
+
 def plot_latent_space(model, data_loader, device, n_samples=100):
   model.eval()
   mus = []
@@ -160,12 +187,12 @@ def plot_mu_vs_sigma_all_dims(
         fig = plt.figure(figsize=(7, 6))
         plt.scatter(
             mu_vals[:, i].numpy(),
-            sigma_vals[:, i].numpy(),
+            mu_vals[:, i+1].numpy(),
             s=8,
             alpha=0.6,
         )
         plt.xlabel(f"mu[{i}]")
-        plt.ylabel(f"sigma[{i}]")
+        plt.ylabel(f"mu[{i+1}]")
         plt.title(f"Mean vs Uncertainty (latent dim {i})")
         plt.grid(True)
 
@@ -324,6 +351,9 @@ def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, d
     n_samples=500,
     save_dir= os.path.join(output_dir)
 )
+  
+  latents = extract_latents(model, train_dataloader, device)
 
+  np.save(os.path.join(output_dir, "latents.npy"), latents)
 
   return total_training_loss, total_val_loss
