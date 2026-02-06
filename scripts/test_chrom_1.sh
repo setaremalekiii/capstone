@@ -24,9 +24,7 @@ cd $main/models/yolov5
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # List of datasets to test
-DATASETS=(
-    "data/test_norm_chrom1_cropped.yaml"
-)
+DATA_YAML="data/test_norm_chrom1_cropped.yaml"
 
 # Test parameters
 # resizes to that size
@@ -35,18 +33,14 @@ IMGSZ=1024
 mkdir -p runs/test
 
 # Loop over each dataset
-for DATA_YAML in "${DATASETS[@]}"; do
-    echo "=== Running test for $DATA_YAML ==="
-    python val_modified.py \
-        --weights runs/train/final_combined_hyps_v2/weights/best.pt \
-        --data $DATA_YAML \
-        --task test \
-        --imgsz $IMGSZ \
-        --save-txt \
-        --save-conf \
-        --project runs/test \
-        --name combined_hyps_v2_on_chrom1
-done
+echo "=== Running test for $DATA_YAML ==="
+python val_modified.py \
+    --weights runs/train/final_combined_hyps_v2/weights/best.pt \
+    --data $DATA_YAML \
+    --task test \
+    --imgsz $IMGSZ \
+    --project runs/test \
+    --name combined_hyps_v2_on_chrom1
 
 # Deactivate environment
 conda deactivate

@@ -1,7 +1,7 @@
 #!/bin/bash
 ####### Reserve computing resources #############
 #SBATCH --time=3:00:00 
-#SBATCH --job-name= combined_hyps_v2_on_chrom2 
+#SBATCH --job-name=combined_hyps_v2_on_chrom2 
 #SBATCH --account=st-li1210-1
 #SBATCH --nodes=1        
 #SBATCH --ntasks=1   
@@ -24,29 +24,16 @@ cd $main/models/yolov5
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # List of datasets to test
-DATASETS=(
-    "data/test_norm_chrom2_cropped.yaml"
-)
-
-# Test parameters
-# resizes to that size
+DATA_YAML="data/test_norm_chrom2_cropped.yaml"
 IMGSZ=1024
 
-mkdir -p runs/test
-
-# Loop over each dataset
-for DATA_YAML in "${DATASETS[@]}"; do
-    echo "=== Running test for $DATA_YAML ==="
-    python val_modified.py \
-        --weights runs/train/final_combined_hyps_v2/weights/best.pt \
-        --data $DATA_YAML \
-        --task test \
-        --imgsz $IMGSZ \
-        --save-txt \
-        --save-conf \
-        --project runs/test \
-        --name combined_hyps_v2_on_chrom2
-done
+python val_modified.py \
+  --weights runs/train/final_combined_hyps_v2/weights/best.pt \
+  --data "$DATA_YAML" \
+  --task test \
+  --imgsz "$IMGSZ" \
+  --project runs/test \
+  --name combined_hyps_v2_on_chrom2
 
 # Deactivate environment
 conda deactivate
