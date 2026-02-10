@@ -5,15 +5,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 from ConvCVAE import ConvCVAE
 import logging
 from tqdm import tqdm
+import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from torchvision.utils import save_image
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from pathlib import Path
-
+from torchvision.transforms.functional import rotate, InterpolationMode
 
 
 def loss_function(x_recon, x, mu, logvar, ssim_fn, beta, gamma, alpha, bsize):
@@ -205,6 +207,76 @@ def plot_mu_vs_sigma_all_dims(
 
     return figs
 
+def rotate_batch(x, angle_degrees: float):
+    """
+    x: [B, C, H, W] torch tensor
+    returns rotated x with same shape
+    """
+    return torch.stack([
+        rotate(img, angle_degrees, interpolation=InterpolationMode.BILINEAR)
+        for img in x
+    ], dim=0)
+
+@torch.no_grad()
+def collect_mu_by_angle(model, dataloader, device, angles, label_getter=None, id_getter=None):
+    model.eval()
+    mu_dict = {}
+
+    for batch in dataloader:
+        if isinstance(batch, (list, tuple)):
+            x = batch[0]
+        elif isinstance(batch, dict):
+            x = batch["image"]
+        else:
+            raise ValueError("Unknown batch format")
+
+        x = x.to(device)
+
+        y = label_getter(batch).to(device) if label_getter is not None else None
+        ids = id_getter(batch) if id_getter is not None else None
+
+        if ids is None:
+            ids = list(range(len(mu_dict), len(mu_dict) + x.shape[0]))
+
+        # If your model is conditional, enforce y exists
+        if y is None:
+            raise ValueError("This model is conditional: encode() needs y. Provide label_getter.")
+
+        mu_angles = []  # list of [B, latent_dim]
+        for a in angles:
+            x_rot = rotate_batch(x, a)
+            mu, logvar = model.encode(x_rot, y)
+            mu_angles.append(mu.detach().cpu().numpy())
+
+        mu_angles = np.stack(mu_angles, axis=0)  # [num_angles, B, latent_dim]
+
+        for b_idx, sample_id in enumerate(ids):
+            mu_dict[sample_id] = mu_angles[:, b_idx, :]
+
+    return mu_dict
+
+
+def rotation_variance_scores(mu_dict, agg="mean"):
+    """
+    mu_dict[id] = [num_angles, latent_dim]
+    Returns:
+      scores: [latent_dim] rotation sensitivity score
+    """
+    per_image_var = []
+    for sample_id, mu in mu_dict.items():
+        # variance across angles: [latent_dim]
+        per_image_var.append(mu.var(axis=0))
+
+    per_image_var = np.stack(per_image_var, axis=0)  # [num_images, latent_dim]
+
+    if agg == "mean":
+        return per_image_var.mean(axis=0)
+    elif agg == "median":
+        return np.median(per_image_var, axis=0)
+    else:
+        raise ValueError("agg must be 'mean' or 'median'")
+
+
 
 def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, device, n_epochs, output_dir, patience, min_beta_value = 0.1):
   if not train_dataloader or not val_dataloader:
@@ -343,6 +415,82 @@ def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, d
   #mu_vs_sigma = plot_mu_vs_sigma(model, train_dataloader, device)
   #mu_vs_sigma.savefig(os.path.join(output_dir, 'mu_vs_sigma.png'))
   #plt.close(mu_vs_sigma)
+  #latents = extract_latents(model, train_dataloader, device)
+
+  #np.save(os.path.join(output_dir, "latents.npy"), latents)
+
+  angles = list(range(0, 360, 10))  # e.g. every 10 degrees
+
+  # If your dataloader yields (x, y, ids):
+  label_getter = lambda batch: batch[1]      # adjust if needed
+  mu_dict = collect_mu_by_angle(
+    model,
+    train_dataloader,
+    device,
+    angles=angles,
+    label_getter=label_getter,  # or set correctly
+    id_getter=None      # <-- important
+  )
+
+  scores = rotation_variance_scores(mu_dict, agg="mean")  # [latent_dim]
+
+  top = np.argsort(scores)[::-1]
+  
+
+  df = pd.DataFrame({
+    "latent_dim": np.arange(len(scores)),
+    "rotation_variance_score": scores
+  })
+
+  # sort by score (highest first)
+  df = df.sort_values("rotation_variance_score", ascending=False)
+
+  out_path = os.path.join(output_dir, "rotation_latent_scores.csv")
+  df.to_csv(out_path, index=False)
+
+  d = top[0]
+
+  plt.figure()
+
+  for sample_id in list(mu_dict.keys())[:5]:   # first 5 chromosomes
+    mu = mu_dict[sample_id]
+    plt.plot(angles, mu[:, d], alpha=0.7)
+
+  plt.xlabel("Rotation angle (degrees)")
+  plt.ylabel(f"mu[{d}]")
+  plt.title(f"Latent dim {d} across chromosomes")
+  plt.grid(True)
+  plt.show()
+  out = os.path.join(output_dir, f"latent_dim_{d}_vs_angle.png")
+  plt.savefig(out, dpi=150, bbox_inches="tight")
+  plt.close()
+
+#   d1, d2, d3 = top[:3]
+
+#   # flatten all samples + angles into one big set of points
+#   points = []
+#   angle_vals = []
+
+#   for sample_id, mu in mu_dict.items():  # mu: [num_angles, latent_dim]
+#     pts = mu[:, [d1, d2, d3]]          # [num_angles, 3]
+#     points.append(pts)
+#     angle_vals.append(np.array(angles))  # [num_angles]
+
+#   points = np.vstack(points)        # [N, 3]
+#   angle_vals = np.concatenate(angle_vals)  # [N]
+
+#   fig = plt.figure()
+#   ax = fig.add_subplot(111, projection="3d")
+
+#   sc = ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=angle_vals)
+#   fig.colorbar(sc, ax=ax, label="angle (deg)")
+
+#   ax.set_xlabel(f"mu[{d1}]")
+#   ax.set_ylabel(f"mu[{d2}]")
+#   ax.set_zlabel(f"mu[{d3}]")
+#   ax.set_title("Top-3 rotation dims: all samples × angles")
+
+#   plt.show()
 
   plot_mu_vs_sigma_all_dims(
     model,
@@ -352,8 +500,6 @@ def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, d
     save_dir= os.path.join(output_dir)
 )
   
-  latents = extract_latents(model, train_dataloader, device)
-
-  np.save(os.path.join(output_dir, "latents.npy"), latents)
+  
 
   return total_training_loss, total_val_loss
