@@ -80,6 +80,14 @@ def main(args):
   optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
   scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.stepsize, gamma=0.5)
   
+  if args.weight is not None:
+    if os.path.exists(args.weight):
+        state = torch.load(args.weight, map_location=device)
+        model.load_state_dict(state)
+        print(f"Loaded weights from: {args.weight}")
+    else:
+        print(f"WARNING: weight path not found: {args.weight}")
+
   os.makedirs(args.output, exist_ok = True)
   
   # get a new exp name for the experiment:
@@ -133,6 +141,7 @@ if __name__ == "__main__":
   parser.add_argument("--deeper", action="store_true", help="Use deeper model architecture")
   parser.add_argument("--latent", type=int, default=64, help="latent space dimension")
   parser.add_argument("--stepsize", type=int, default=10, help="decide on the step size for scheduler")
+  parser.add_argument("--weight", type=str, default="outputs/train/exp188/weights/best.pth", help="hyperparameters/weight")
 
   args = parser.parse_args()
   main(args)
