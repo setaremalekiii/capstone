@@ -139,11 +139,10 @@ if __name__ == "__main__":
   parser.add_argument("--beta", type=float, default=0.1, help="beta annealing value for training")
   parser.add_argument("--patience", type=float, default=20, help="patience epoch number")
   parser.add_argument("--deeper", action="store_true", help="Use deeper model architecture")
-  parser.add_argument("--latent", type=int, default=64, help="latent space dimension")
+  parser.add_argument("--latent", type=int, default=32, help="latent space dimension")
   parser.add_argument("--stepsize", type=int, default=10, help="decide on the step size for scheduler")
-  parser.add_argument("--weight", type=str, default="outputs/train/exp188/weights/best.pth", help="hyperparameters/weight")
+  parser.add_argument("--weight", type=str, help="hyperparameters/weight")
 
   args = parser.parse_args()
   main(args)
   print_hyps(args, parser)
-
