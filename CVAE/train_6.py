@@ -460,10 +460,8 @@ def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, d
   plt.ylabel(f"mu[{d}]")
   plt.title(f"Latent dim {d} across chromosomes")
   plt.grid(True)
-  plt.show()
   out = os.path.join(output_dir, f"latent_dim_{d}_vs_angle.png")
   plt.savefig(out, dpi=150, bbox_inches="tight")
-  plt.close()
 
 #   d1, d2, d3 = top[:3]
 
