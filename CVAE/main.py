@@ -8,7 +8,7 @@ import torch
 import glob
 import numpy as np
 from ConvCVAE import ConvCVAE
-from train_4 import train_model
+from train_6 import train_model, encode_decode, plot_latent_space
 # from test import test_model
 from data import ChromosomeDataset
 from torch.utils.data import DataLoader
@@ -102,16 +102,29 @@ def main(args):
     
     training_loss, val_loss = train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, device, args.epochs, results_dir, args.patience, args.beta)
     print(f"Training results found in directory {exp_name}")
+
     
   elif args.exptype == 'val':
     print(f"{exptype} not implemented yet", flush = True)
   elif args.exptype == 'test':
-    print(f"{exptype} not implemented yet", flush = True)
+    # print(f"{exptype} not implemented yet", flush = True)
     # test_data = ChromosomeDataset(test_img_paths, target_size = target_imgsize, transform = False)
     # test_dataloader = DataLoader(test_data, args.bsize, shuffle=False)
-    # 
+    #
     # test_results = test_model(model, test_dataloader, device, args.bce, args.ssim)
-    # 
+    #
+     
+    #plot_latent_space(model, device, results_dir)
+
+    model.load_state_dict(torch.load(args.model_path, map_location=device))
+    model.to(device)
+    model.eval()
+
+    test_img_paths = glob.glob(f"{config['test']}/*.jpg")
+    test_data = ChromosomeDataset(test_img_paths, target_size = target_imgsize, transform = True)
+    test_dataloader = DataLoader(test_data, args.bsize, shuffle=True)
+
+    encode_decode(model, test_dataloader, device, results_dir)
 
 if __name__ == "__main__":
   
@@ -129,6 +142,7 @@ if __name__ == "__main__":
   parser.add_argument("--deeper", action="store_true", help="Use deeper model architecture")
   parser.add_argument("--latent", type=int, default=64, help="latent space dimension")
   parser.add_argument("--stepsize", type=int, default=10, help="decide on the step size for scheduler")
+  parser.add_argument("--model_path", type=str, default='outputs/train/exp1/weights/best.pth', help="path to the model for testing")
 
   args = parser.parse_args()
   main(args)

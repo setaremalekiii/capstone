@@ -120,6 +120,36 @@ def plot_latent_space(model, data_loader, device, n_samples=5000):
   plt.show()
   return fig
 
+def encode_decode(model, data_loader, device, n_samples=5000):
+
+
+  model.eval()
+  mus = []
+  labels = []
+
+  with torch.no_grad():
+    n = 0
+    for x, y in data_loader:
+         x = x.to(device)
+         y = y.to(device)
+
+         mu, logvar = model.encode(x, y)   # CVAE needs y
+
+         reconstruct_image(model, mu, y, 'outputs/temp_recon', device)
+
+def reconstruct_image(model, latent_vector, condition_vector, output_dir, device):
+  latent_vector = latent_vector.to(device)
+  condition_vector = condition_vector.to(device)
+
+  x_recon = model.decode(latent_vector, condition_vector)
+
+  recon_dir = os.path.join(output_dir, 'reconstructions_from_latent')
+
+  recon_path = os.path.join(recon_dir, f"recon.png")
+  save_image(x_recon.cpu(), recon_path, nrow=latent_vector.size(0), normalize=True)
+  print(f"Saved reconstruction to {recon_path}")
+
+
 def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, device, n_epochs, output_dir, patience, min_beta_value = 0.1):
   if not train_dataloader or not val_dataloader:
     raise ValueError("Dataloaders cannot be empty")
