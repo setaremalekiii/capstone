@@ -16,6 +16,8 @@ def probe_latent_dimension_save(
     sample_id="0",
     include_original=True,
     centered=True,   # if True: sweep around mu; if False: overwrite with absolute values
+    # uncomment the line below if you want to make it not centered and coment out the top line
+    # centered = False,
 ):
     """
     Saves a grid image showing reconstructions as you sweep one latent dimension.
@@ -31,6 +33,7 @@ def probe_latent_dimension_save(
     sample_id: string used in filename
     include_original: include original image above reconstructions
     centered: if True use z_d = mu_d + delta, else z_d = value
+    
     """
     os.makedirs(out_dir, exist_ok=True)
     model.eval()
@@ -47,6 +50,7 @@ def probe_latent_dimension_save(
     recons = []
     # probing
     for v in vals:
+        # rows is number of photos being evaluated and columns are latent dims
         z = base_z.clone()
         if centered:
             z[:, dim_to_probe] = base_z[:, dim_to_probe] + v
