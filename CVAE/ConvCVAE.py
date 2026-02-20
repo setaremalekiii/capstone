@@ -8,7 +8,7 @@ import torch.nn as nn
 class ConvCVAE(nn.Module):
   # constructor: images (64 x 64), 1 channel so grayscale, label are 24 of them, latent dim is 64, more or less layers
   # Z = n x latent_dim
-  def __init__(self, img_size, img_channels=1, label_dim=24, latent_dim=64, deeper = False):
+  def __init__(self, img_size, img_channels=1, label_dim=24, latent_dim=32, deeper = False):
       super(ConvCVAE, self).__init__()
       self.img_channels = img_channels
       self.label_dim = label_dim
