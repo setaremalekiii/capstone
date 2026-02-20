@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from ConvCVAE import ConvCVAE
 from data import ChromosomeDataset
-from probe_utils import probe_latent_dimension_save  # <-- put your save-probe function in probe_utils.py
+from probe_utils import probe_latent_dimension_save
 
 
 def load_yaml(path: str):
@@ -17,33 +17,35 @@ def load_yaml(path: str):
 
 
 def main():
-    # ---- CONFIG (edit these) ----
-    yaml_path = "data.yaml"  # same YAML you used for training
-    weights_path = "best_32.pth"  # <-- update
+    # edit the paths to match your path
+    yaml_path = "data.yaml"  # where images are being loaded from
+    weights_path = "best_32.pth" # edit the name as needed
     out_dir = "probe_outputs/exp1_best"  # where probe images will be saved
 
+    # must be same as what we trained with
     imgsize = 64
     latent_dim = 32
     deeper = False
     batch_size = 32
 
     # Which latent dims to probe
-    dims_to_probe = list(range(32))  # edit as needed
+    dims_to_probe = list(range(latent_dim+1))  # edit as needed
+    # you can comment uncomment this like if you want to customize the latnet axis you want to probe
+    # dims_to_probe = [1,2, whatever you want]
 
     # How many images to probe (from validation set)
-    num_images_to_probe = 50
+    num_images_to_probe = 50 
 
     # Probe sweep settings
     sweep_range = (-2, 2)  # recommended when centered=True
     steps = 9
-    centered = True        # sweep around mu
-    include_original = True
-    # -----------------------------
+    centered = True # sweep around mu
+    include_original = True # includes the original photo at the top
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     os.makedirs(out_dir, exist_ok=True)
 
-    # 1) Build model (MUST match training)
+    # 1) Build model you want to probe (MUST match training)
     model = ConvCVAE(
         img_size=(imgsize, imgsize),
         latent_dim=latent_dim,
@@ -54,7 +56,7 @@ def main():
     model.load_state_dict(state)
     model.eval()
 
-    # 2) Build validation dataloader (same as your main.py)
+    # 2) Build validation dataloader (same as main.py)
     cfg = load_yaml(yaml_path)
     val_img_paths = glob.glob(f"{cfg['val']}/*.jpg")
     val_data = ChromosomeDataset(val_img_paths, target_size=(imgsize, imgsize), transform=False)
@@ -76,7 +78,7 @@ def main():
             sample_id = str(global_idx)
 
             for d in dims_to_probe:
-                # Optional: organize by dim subfolders
+                # organize by dim subfolders
                 dim_dir = os.path.join(out_dir, f"dim_{d:02d}")
                 os.makedirs(dim_dir, exist_ok=True)
 
