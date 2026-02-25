@@ -26,7 +26,7 @@ def probe_latent_dimension_save(
     x: [1, C, H, W]
     y: [1, label_dim]
     device: torch device
-    dim_to_probe: which latent axis to change
+    dim_to_probe: which latent axis to change TODO: change this to a list so more than 1 can get probed at once?
     out_dir: folder to save images
     sweep_range: (lo, hi) range for the sweep
     steps: number of sweep points
