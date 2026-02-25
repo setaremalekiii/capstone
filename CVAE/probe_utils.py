@@ -10,6 +10,7 @@ def probe_latent_dimension_save(
     x, y,
     device,
     dim_to_probe,
+    multi_prob = False,
     out_dir,
     sweep_range=(-2, 2),
     steps=9,
@@ -27,6 +28,7 @@ def probe_latent_dimension_save(
     y: [1, label_dim]
     device: torch device
     dim_to_probe: which latent axis to change TODO: change this to a list so more than 1 can get probed at once?
+     multi_prob set this to True if you want all the values in the list to probe at once 
     out_dir: folder to save images
     sweep_range: (lo, hi) range for the sweep
     steps: number of sweep points
@@ -49,20 +51,22 @@ def probe_latent_dimension_save(
 
     recons = []
     # probing
-    for v in vals:
-        # rows is number of photos being evaluated and columns are latent dims
-        z = base_z.clone()
-        if centered:
-            z[:, dim_to_probe] = base_z[:, dim_to_probe] + v
-        else:
-            z[:, dim_to_probe] = v
+    if not multi_prob:
+        for v in vals:
+            # rows is number of photos being evaluated and columns are latent dims
+            z = base_z.clone()
+            if centered:
+                z[:, dim_to_probe] = base_z[:, dim_to_probe] + v
+            else:
+                z[:, dim_to_probe] = v
 
-        x_recon = model.decode(z, y)
-        recons.append(x_recon.cpu())
+            x_recon = model.decode(z, y)
+            recons.append(x_recon.cpu())
 
-    recon_stack = torch.cat(recons, dim=0)  # [steps, C, H, W]
-    recon_grid = make_grid(recon_stack, nrow=steps, normalize=True)
-
+        recon_stack = torch.cat(recons, dim=0)  # [steps, C, H, W]
+        recon_grid = make_grid(recon_stack, nrow=steps, normalize=True)
+    else: 
+        pass # implenment the all probing at once
     # Plot and include the original photo at top
     if include_original:
         orig_grid = make_grid(x.cpu(), nrow=1, normalize=True)
