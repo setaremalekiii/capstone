@@ -1,5 +1,3 @@
-# Usage script to load a trained ConvCVAE, build the val dataloader, and save latent-dim probe grids.
-
 import os
 import glob
 import yaml
@@ -8,7 +6,7 @@ from torch.utils.data import DataLoader
 
 from ConvCVAE import ConvCVAE
 from data import ChromosomeDataset
-from probe_utils import probe_latent_dimension_save
+from probe_utils import probe_latent_dimension_save  # <-- put your save-probe function in probe_utils.py
 
 
 def load_yaml(path: str):
@@ -17,35 +15,34 @@ def load_yaml(path: str):
 
 
 def main():
-    # edit the paths to match your path
-    yaml_path = "data.yaml"  # where images are being loaded from
-    weights_path = "best_32.pth" # edit the name as needed
-    out_dir = "probe_outputs/exp1_best"  # where probe images will be saved
+    # CONFIG (edit these) as needed make maybe give a new path for each run
+    yaml_path = "data.yaml"  # same YAML you used for training
+    weights_path = "best_32.pth"  # <-- update later with new weights
+    out_dir = "probe_outputs/new_test"  # where probe images will be saved
 
-    # must be same as what we trained with
     imgsize = 64
     latent_dim = 32
     deeper = False
     batch_size = 32
 
     # Which latent dims to probe
-    dims_to_probe = list(range(latent_dim+1))  # edit as needed
-    # you can comment uncomment this like if you want to customize the latnet axis you want to probe
-    # dims_to_probe = [1,2, whatever you want]
-
+    #dims_to_probe = list(range(latent_dim+1))  # edit as needed you can either do all dims for uncomment the line below to customize which dim u wanna probe
+    dims_to_probe = [9,17,24]
+    probe_mode = "together"
     # How many images to probe (from validation set)
-    num_images_to_probe = 50 
+    num_images_to_probe = 2
 
     # Probe sweep settings
     sweep_range = (-2, 2)  # recommended when centered=True
     steps = 9
     centered = True # sweep around mu
-    include_original = True # includes the original photo at the top
+    include_original = True
+
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     os.makedirs(out_dir, exist_ok=True)
 
-    # 1) Build model you want to probe (MUST match training)
+    # 1) Build model (MUST match training)
     model = ConvCVAE(
         img_size=(imgsize, imgsize),
         latent_dim=latent_dim,
@@ -56,7 +53,7 @@ def main():
     model.load_state_dict(state)
     model.eval()
 
-    # 2) Build validation dataloader (same as main.py)
+    # 2) Build validation dataloader (same as your main.py)
     cfg = load_yaml(yaml_path)
     val_img_paths = glob.glob(f"{cfg['val']}/*.jpg")
     val_data = ChromosomeDataset(val_img_paths, target_size=(imgsize, imgsize), transform=False)
@@ -78,7 +75,7 @@ def main():
             sample_id = str(global_idx)
 
             for d in dims_to_probe:
-                # organize by dim subfolders
+                # Optional: organize by dim subfolders
                 dim_dir = os.path.join(out_dir, f"dim_{d:02d}")
                 os.makedirs(dim_dir, exist_ok=True)
 
@@ -94,6 +91,7 @@ def main():
                     sample_id=sample_id,
                     include_original=include_original,
                     centered=centered,
+                    probe_mode=probe_mode,
                 )
 
             saved += 1
