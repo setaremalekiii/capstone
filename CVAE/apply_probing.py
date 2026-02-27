@@ -1,3 +1,4 @@
+# Make sure to cd into the CVAE folfer before running this script or else it will not work!
 import os
 import glob
 import yaml
@@ -63,6 +64,9 @@ def main():
     saved = 0
     global_idx = 0
 
+    group_dir = os.path.join(out_dir, f"group_{'-'.join(map(str, dims_to_probe))}")
+    os.makedirs(group_dir, exist_ok=True)
+
     for x_batch, y_batch in val_loader:
         b = x_batch.size(0)
 
@@ -74,25 +78,20 @@ def main():
             y = y_batch[j:j+1]
             sample_id = str(global_idx)
 
-            for d in dims_to_probe:
-                # Optional: organize by dim subfolders
-                dim_dir = os.path.join(out_dir, f"dim_{d:02d}")
-                os.makedirs(dim_dir, exist_ok=True)
-
-                probe_latent_dimension_save(
-                    model=model,
-                    x=x,
-                    y=y,
-                    device=device,
-                    dim_to_probe=d,
-                    out_dir=dim_dir,
-                    sweep_range=sweep_range,
-                    steps=steps,
-                    sample_id=sample_id,
-                    include_original=include_original,
-                    centered=centered,
-                    probe_mode=probe_mode,
-                )
+            probe_latent_dimension_save(
+            model=model,
+            x=x,
+            y=y,
+            device=device,
+            dims_to_probe=dims_to_probe,   # <-- pass full list
+            out_dir=group_dir,
+            sweep_range=sweep_range,
+            steps=steps,
+            sample_id=sample_id,
+            include_original=include_original,
+            centered=centered,
+            probe_mode=probe_mode,         # "together" or "one_by_one"
+        )
 
             saved += 1
             global_idx += 1
@@ -101,7 +100,6 @@ def main():
             break
 
     print(f"Saved probe grids for {saved} images into: {out_dir}")
-
 
 if __name__ == "__main__":
     main()
