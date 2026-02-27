@@ -1,3 +1,3 @@
-train: C:\Users\Hanna\Documents\GitHub\capstone\CVAE\class_2\train
-val: C:\Users\Hanna\Documents\GitHub\capstone\CVAE\class_2\val
-test: C:\Users\Hanna\Documents\GitHub\capstone\CVAE\class_2\test
+train: /scratch/st-li1210-1/pearl/karyotype-detector/data/cropped_v3/train
+val: /scratch/st-li1210-1/pearl/karyotype-detector/data/cropped_v3/val
+test: /scratch/st-li1210-1/pearl/karyotype-detector/data/cropped_v3/test

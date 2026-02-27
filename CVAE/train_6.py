@@ -120,6 +120,7 @@ def plot_latent_space(model, data_loader, device, n_samples=5000):
   plt.show()
   return fig
 
+<<<<<<< HEAD
 def encode_decode(model, data_loader, device, n_samples=5000):
 
 
@@ -150,6 +151,8 @@ def reconstruct_image(model, latent_vector, condition_vector, output_dir, device
   print(f"Saved reconstruction to {recon_path}")
 
 
+=======
+>>>>>>> d578a9b0031344533ddf1b1bf85340b1d2fe26a4
 def train_model(model, optimizer, scheduler, train_dataloader, val_dataloader, device, n_epochs, output_dir, patience, min_beta_value = 0.1):
   if not train_dataloader or not val_dataloader:
     raise ValueError("Dataloaders cannot be empty")
