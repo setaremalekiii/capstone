@@ -4,6 +4,9 @@ import torch
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 from typing import Sequence, Union, Literal
+import torchvision.transforms.functional as TF
+from torchvision.transforms.functional import InterpolationMode
+
 
 @torch.no_grad()
 def probe_latent_dimension_save(
@@ -138,3 +141,67 @@ def probe_latent_dimension_save(
     plt.close()
 
     return out_path
+
+@torch.no_grad()
+def save_latent_vector_draft(
+    model,
+    x, y,
+    device,
+    out_dir,
+    rot_angle
+):
+    """
+    Saves the mu latent vector for the given input x, y to a text file in out_dir.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    model.eval()
+
+    x = x.to(device)
+    y = y.to(device)
+
+    # Encode to get a stable latent anchor
+    mu, logvar = model.encode(x, y)
+    with open(os.path.join(out_dir, 'latent_vector.txt'), 'w') as file:
+        file.write(f"{mu.cpu().numpy(), rot_angle}\n")
+
+
+def save_latent_vector(
+    model,
+    x,                      # [1, C, H, W] already 64x64 from ChromosomeDataset
+    y,                      # [1, ...] conditioning for CVAE
+    device,
+    out_dir: str,
+    sample_id: str,
+    angles=range(1, 360),   # 1..359
+    txt_name: str = "latents_by_angle.txt",
+):
+    """
+    For one sample (x,y), rotates x through `angles`, encodes mu using model.encode(x_rot, y),
+    and appends lines to a text file.
+
+    Output line format:
+      sample_id angle mu1 mu2 ... mu_latent_dim
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    txt_path = os.path.join(out_dir, txt_name)
+
+    model.eval()
+    x = x.to(device)
+    y = y.to(device)
+
+    with torch.no_grad(), open(txt_path, "a") as f:
+        for angle in angles:
+            # Rotate tensor in-memory (keeps size 64x64 because expand=False for TF.rotate)
+            x_rot = TF.rotate(
+                x,
+                angle=float(angle),
+                interpolation=InterpolationMode.BILINEAR,
+                expand=False
+            )
+
+            mu, logvar = model.encode(x_rot, y)   # <-- your exact encode signature
+            mu_np = mu.squeeze(0).detach().cpu().numpy()
+
+            f.write(f"{sample_id} {int(angle)} " + " ".join(map(str, mu_np)) + "\n")
+
+    return txt_path
