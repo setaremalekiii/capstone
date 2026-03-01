@@ -5,7 +5,7 @@ import torch.nn as nn
 
 class ConvCVAE(nn.Module):
   
-  def __init__(self, img_size, img_channels=1, label_dim=24, latent_dim=32, deeper = False):
+  def __init__(self, img_size, img_channels=1, label_dim=24 + 2, latent_dim=32, deeper = False): # add "+2" to label_dim if using data_straighten since it conditions angle as well, will have to edit the code to remove this condition i think.
       super(ConvCVAE, self).__init__()
       self.img_channels = img_channels
       self.label_dim = label_dim
