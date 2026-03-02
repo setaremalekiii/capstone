@@ -91,11 +91,13 @@ class ChromosomeDataset(Dataset):
       filename = os.path.basename(path)
       # img name is in format: "{image_base_name}_class{int(class_id)}_{i}.jpg"
       match = re.search(r"class(\d+)", filename)
+      match2 =  re.search(r"(?:^|[\\/])class_(\d+)(?:[\\/]|$)", path)
       if match:
         labels.append(int(match.group(1)))
+      elif match2:
+        labels.append(int(match2.group(1)))
       else:
         raise ValueError(f"Could not extract class_id from {path}")
-    return labels
   
 if __name__ == "__main__":
   MAIN_DIR = "/scratch/st-li1210-1/pearl/karyotype-detector/"
