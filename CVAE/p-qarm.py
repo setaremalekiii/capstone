@@ -21,7 +21,6 @@ if SAVE_MASKS:
 EXTS = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp")
 
 
-# ------------ CORE LOGIC ------------
 def segment_chromosome_mask(bgr: np.ndarray) -> np.ndarray:
     """
     Returns a binary mask for the chromosome (largest connected component).
@@ -189,12 +188,6 @@ def main():
         out = cropped.copy()
         if not p_is_top:
             out = cv2.flip(out, FLIP_AXIS)
-
-        if SAVE_DEBUG:
-            txt = f"p_up={p_is_top}"
-            cv2.putText(out, txt, (5, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,0), 2, cv2.LINE_AA)
-            cv2.putText(out, txt, (5, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 1, cv2.LINE_AA)
-
         cv2.imwrite(out_path, out)
         ok_count += 1
         print(f"[OK] {f} -> {os.path.basename(out_path)} ({info})")
