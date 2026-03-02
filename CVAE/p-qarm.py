@@ -171,7 +171,7 @@ def main():
     for f in files:
         in_path = os.path.join(IN_DIR, f)
         base = os.path.splitext(f)[0]
-        out_path = os.path.join(OUT_DIR, base + "_pup.png")
+        out_path = os.path.join(OUT_DIR, base + ".png")
 
         ok, info = process_one(in_path)
         if not ok:
