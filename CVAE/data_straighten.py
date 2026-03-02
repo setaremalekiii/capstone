@@ -24,7 +24,7 @@ class ChromosomeDataset(Dataset):
     self.straight_half_width = 16  # output strip width = 2*16+1 = 33 px
 
 
-    self.labels = self.extract_labels(img_paths)
+    #self.labels = self.extract_labels(img_paths)
     self.to_tensor = ToTensor()
 
   def __len__(self):
@@ -142,18 +142,18 @@ class ChromosomeDataset(Dataset):
   def apply_letterbox(self, img, color=(114,)):
     h, w = img.shape[:2]
     target_w, target_h = self.target_size
-    scale = min(target_w / w, target_h / h)
+    scale = min(target_w / w, (target_h * 0.9) / h)
     new_w, new_h = int(w * scale), int(h * scale)
 
     resized_img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
 
     pad_w = target_w - new_w
     pad_h = target_h - new_h
+
     top = pad_h // 2
     bottom = pad_h - top
     left = pad_w // 2
     right = pad_w - left
-
     padded_img = cv2.copyMakeBorder(
         resized_img, top, bottom, left, right,
         cv2.BORDER_CONSTANT, value=color
@@ -179,6 +179,9 @@ class ChromosomeDataset(Dataset):
 
     dist = cv2.distanceTransform((mask.astype(np.uint8) * 255), cv2.DIST_L2, 5)
 
+    valid_r = dist[dist > 0]
+    r_ref = float(np.median(valid_r)) if valid_r.size else 0.0
+    hw_floor = int(np.clip(radius_scale * r_ref * 0.7, 6, max_half_width))
     skel = self._skeletonize(mask)
     ends = self._skeleton_endpoints(skel)
     if len(ends) < 2:
@@ -188,6 +191,7 @@ class ChromosomeDataset(Dataset):
     if len(path_yx) < 12:
         return img
 
+    #pts = extend_pts_both_ends(path_yx, step=1.0, n_steps=20)
     pts = self._smooth_and_resample_path(path_yx, step=1.0)
 
     dy = np.gradient(pts[:, 0])
@@ -201,7 +205,7 @@ class ChromosomeDataset(Dataset):
     ty, tx = ty / nrm, tx / nrm
 
     ny, nx = -tx, ty
-
+    
     L = len(pts)
     width = 2 * max_half_width + 1
     out = np.zeros((L, width), dtype=np.float32)
@@ -210,9 +214,13 @@ class ChromosomeDataset(Dataset):
 
     H, W = img.shape
     for i, (cy, cx) in enumerate(pts):
-        iy, ix = int(round(cy)), int(round(cx))
-        r = dist[iy, ix] if (0 <= iy < H and 0 <= ix < W) else 0.0
+        iy = int(round(cy))
+        ix = int(round(cx))
+        iyc = min(max(iy, 0), H - 1)
+        ixc = min(max(ix, 0), W - 1)
+        r = dist[iyc, ixc]
         local_hw = int(np.clip(radius_scale * r, 3, max_half_width))
+        local_hw = max(local_hw, hw_floor)
 
         offsets = offsets_full.copy()
         outside = (offsets < -local_hw) | (offsets > local_hw)
@@ -225,7 +233,7 @@ class ChromosomeDataset(Dataset):
         samp = cv2.remap(
             img_f, map_x, map_y,
             interpolation=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_REFLECT_101
+            borderMode=cv2.BORDER_CONSTANT
         )[0, :]
 
         # fill outside radius with background (instead of 0)
@@ -236,6 +244,10 @@ class ChromosomeDataset(Dataset):
 
     # ✅ no global normalization (prevents stripe amplification)
     out = np.clip(out, 0, 255).astype(np.uint8)
+    # --- pad along the length so tips don't get trimmed by resizing/letterbox ---
+    # pad_rows = 12  # try 8-20
+    # out = np.pad(out, ((pad_rows, pad_rows), (0, 0)), mode="edge")
+
     return out
 
   def _keep_largest_component(self, mask: np.ndarray) -> np.ndarray:
@@ -256,7 +268,7 @@ class ChromosomeDataset(Dataset):
     nbr = cv2.filter2D(sk, -1, kernel)
     ys, xs = np.where(nbr == 11)
     return list(zip(ys.tolist(), xs.tolist()))
-
+  
   def _trace_skeleton_path(self, skel: np.ndarray, start):
     """
     Non-greedy skeleton tracing:
@@ -385,17 +397,118 @@ class ChromosomeDataset(Dataset):
       else:
         raise ValueError(f"Could not extract class_id from {path}")
     return labels
-  
+
+def extend_pts_both_ends(pts, step=1.0, n_steps=20):
+    pts = pts.astype(np.float32)
+    if len(pts) < 3:
+        return pts
+
+    # pick a more stable direction using a few points
+    k = min(5, len(pts) - 1)
+
+    # start direction: from point k to point 0
+    v0 = pts[0] - pts[k]
+    # end direction: from point -k-1 to last
+    v1 = pts[-1] - pts[-k-1]
+
+    def safe_unit(v):
+        n = float(np.linalg.norm(v))
+        if n < 1e-6:
+            return None
+        return v / n
+
+    u0 = safe_unit(v0)
+    u1 = safe_unit(v1)
+
+    # if direction is degenerate, don’t extend that side
+    start_ext = []
+    end_ext = []
+
+    if u0 is not None:
+        for s in range(n_steps, 0, -1):
+            start_ext.append(pts[0] + u0 * (-step * s))
+        start_ext = np.stack(start_ext, axis=0)
+
+    if u1 is not None:
+        for s in range(1, n_steps + 1):
+            end_ext.append(pts[-1] + u1 * (step * s))
+        end_ext = np.stack(end_ext, axis=0)
+
+    if len(start_ext) and len(end_ext):
+        return np.vstack([start_ext, pts, end_ext])
+    elif len(start_ext):
+        return np.vstack([start_ext, pts])
+    elif len(end_ext):
+        return np.vstack([pts, end_ext])
+    else:
+        return pts
+    
+def export_preprocessed_images(
+    img_paths,
+    target_size=(500, 500 ),
+    out_dir="preprocessed_out",
+    do_augment=False
+):
+    os.makedirs(out_dir, exist_ok=True)
+
+    # make a dataset instance so we can reuse your methods
+    ds = ChromosomeDataset(img_paths, target_size= (500, 500), transform=do_augment)
+
+    for p in img_paths:
+        img = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            print(f"skip (failed to read): {p}")
+            continue
+
+        # --- SAME PIPELINE AS __getitem__ ---
+        theta_deg = 0.0
+        if do_augment:
+            img, theta_deg = ds.random_augment(img)
+        
+        img = ds.classical_straighten_dt(img, max_half_width=16, radius_scale=1.15)
+
+        clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8, 8))
+        img_clahe = clahe.apply(img)
+
+        gaussian_3 = cv2.GaussianBlur(img_clahe, (3, 3), 0.5)
+        img_sharpened = cv2.addWeighted(img_clahe, 2, gaussian_3, -1, 0)
+
+        img_letterbox = ds.apply_letterbox(img_sharpened)
+
+        # ensure uint8 [0..255]
+        if img_letterbox.dtype != np.uint8:
+            img_letterbox = np.clip(img_letterbox, 0, 255).astype(np.uint8)
+
+        base = os.path.basename(p)
+        name, ext = os.path.splitext(base)
+
+        # optional: include rotation in filename if augmented
+        if do_augment:
+            out_name = f"{name}_augRot{theta_deg:.1f}.jpg"
+        else:
+            out_name = f"{name}.jpg"
+
+        out_path = os.path.join(out_dir, out_name)
+        cv2.imwrite(out_path, img_letterbox)
+
+    print(f"Done. Wrote {len(img_paths)} images to: {out_dir}")
   
   
 if __name__ == "__main__":
-  MAIN_DIR = "/scratch/st-li1210-1/pearl/karyotype-detector/"
+  MAIN_DIR = "C:/Users/pierc/Downloads/CVAE/capstone/CVAE"
   cropped_box_path = os.path.join(MAIN_DIR, 'data', 'cropped_v2')
   recon_dir = os.path.join(cropped_box_path, 'train')
-  paths = glob.glob(f"{recon_dir}/*.jpg")
+  paths = glob.glob("../data/cropped_v3/train_croppedv3/*.jpg")
 
-  dataset = ChromosomeDataset(paths, (64,64), True)
+  #dataset = ChromosomeDataset(paths, (64,64), True)
   recon_path = os.path.join(MAIN_DIR, f"data.png")
-  tensor_img, _ = dataset[3]
-  save_image(tensor_img, recon_path, normalize=True)
+  # tensor_img, _ = dataset[3]
+  # save_image(tensor_img, recon_path, normalize=True)
+
+  export_preprocessed_images(
+        img_paths=paths,
+        target_size=(64, 64),
+        out_dir=os.path.join(MAIN_DIR, "data", "preprocessed_train"),
+        do_augment=False  # set True if you want rotated/flipped/brightness versions saved
+    )
 
