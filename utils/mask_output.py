@@ -4,6 +4,8 @@ import os
 import glob
 from segment_anything import sam_model_registry, SamPredictor
 
+#use this one!!! 
+
 # 1) Load SAM weights
 sam = sam_model_registry["vit_b"](checkpoint="sam_b.pt")
 predictor = SamPredictor(sam)
